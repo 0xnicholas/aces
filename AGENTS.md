@@ -17,6 +17,36 @@ mandatory, un-bypassable enforcement point for permissions, scheduling,
 isolation, and audit across all Agent activity — including Agent-to-Agent
 calls.
 
+## Current repository state
+
+This repository is currently a design and architecture workspace. It does not
+yet contain the full Rust implementation workspace described later in this
+document.
+
+Files and directories that exist today:
+
+- Top-level project documents such as `AGENTS.md`, `ARCHITECTURE.md`, and
+  `README.md`
+- `protocol-spec/overview.md`
+- `docs/architecture/` notes, plans, and Mermaid diagram sources
+
+Files and directories that do not exist yet in this checkout:
+
+- `Cargo.toml`
+- `crates/`
+- `sdk/`
+- `docs/compliance/`
+
+When working in the repository as it exists today, treat implementation paths,
+crate ownership guidance, and Rust commands in this file as target-state
+guidance unless those files have actually been added.
+
+---
+
+## Target implementation workspace
+
+The long-term repository structure is expected to look like this:
+
 The repository contains two tightly related sub-projects:
 
 | Sub-project | Crate path | Purpose |
@@ -29,7 +59,7 @@ without the other; neither is the same thing.
 
 ---
 
-## Repository layout
+Target repository layout:
 
 ```
 agent-kernel/
@@ -172,8 +202,8 @@ query_audit(filter: AuditFilter) -> Result<Vec<LogEntry>>
 ## Mandatory semantic constraints
 
 These are not guidelines. Every constraint must hold for every commit on
-`main`. The compliance test suite in `crates/agent-protocol/tests/compliance`
-verifies all six.
+`main`. In the target implementation workspace, the compliance test suite in
+`crates/agent-protocol/tests/compliance` verifies all six.
 
 1. **Idempotency** — replaying the same `RunId` must produce the same
    observable result.
@@ -194,6 +224,10 @@ verifies all six.
 
 ## What to do before writing code
 
+If you are working only in the current docs-only repository state, adapt these
+steps to the materials that actually exist. Review the spec and architecture
+documents first instead of assuming the implementation workspace is present.
+
 1. **Identify which crate owns the change.** Changes to the Protocol
    interface contract belong in `agent-protocol`. Changes to enforcement
    logic belong in the relevant `kernel-*` crate. Changes to the public API
@@ -208,8 +242,9 @@ verifies all six.
    ```bash
    cargo test -p agent-protocol --test compliance
    ```
-   All tests must pass. The compliance suite is the authoritative check for
-   Protocol correctness — it is not optional.
+   In the target implementation workspace, all tests must pass. The
+   compliance suite is the authoritative check for Protocol correctness — it
+   is not optional.
 
 4. **Run the full test suite.**
    ```bash
@@ -220,12 +255,15 @@ verifies all six.
    ```bash
    cargo bench -p kernel-core
    ```
-   The `invoke` p99 latency budget is **5 ms**. The audit write p99 budget
-   is **2 ms**. Regressions block merge.
+   In the target implementation workspace, the `invoke` p99 latency budget is
+   **5 ms**. The audit write p99 budget is **2 ms**. Regressions block merge.
 
 ---
 
 ## Code style and conventions
+
+These conventions apply to the target Rust workspace once implementation files
+exist in the repository.
 
 ### Rust
 
@@ -278,10 +316,10 @@ Do not introduce new top-level variants without a Protocol change proposal.
 
 | Category | Location | When to run |
 |---|---|---|
-| Unit tests | `src/` inline `#[cfg(test)]` | Always — `cargo test --workspace` |
-| Integration tests | `crates/*/tests/` | Always |
-| Protocol compliance | `crates/agent-protocol/tests/compliance/` | Always — must pass on every PR |
-| Benchmarks | `crates/kernel-core/benches/` | On dispatch-path changes |
+| Unit tests | `src/` inline `#[cfg(test)]` | In target workspace — always run `cargo test --workspace` |
+| Integration tests | `crates/*/tests/` | In target workspace — always |
+| Protocol compliance | `crates/agent-protocol/tests/compliance/` | In target workspace — must pass on every PR |
+| Benchmarks | `crates/kernel-core/benches/` | In target workspace — on dispatch-path changes |
 
 ### What must be tested for any dispatch-path change
 
@@ -350,7 +388,8 @@ error taxonomy, or semantic constraints requires:
    describing the motivation, the change, and the backward-compatibility
    impact.
 2. Updates to the compliance test suite in
-   `crates/agent-protocol/tests/compliance/`.
+   `crates/agent-protocol/tests/compliance/` once that target implementation
+   path exists in the repository.
 3. The proposal merged to `main` before any implementation code is merged.
 
 This process exists because the Protocol is consumed by third parties who
@@ -368,7 +407,8 @@ worse than breaking the Kernel — it breaks the ecosystem.
 | Permission check | < 0.2 ms | < 1 ms | 2 ms |
 | `query_audit` (30-day window) | < 50 ms | < 200 ms | 500 ms |
 
-Benchmarks live in `crates/kernel-core/benches/`. Run with:
+In the target implementation workspace, benchmarks live in
+`crates/kernel-core/benches/`. Run with:
 
 ```bash
 cargo bench -p kernel-core -- --output-format bencher | tee bench.txt
@@ -380,6 +420,9 @@ maintainer with a written justification.
 ---
 
 ## Building and running
+
+These commands apply to the target Rust workspace once it exists in this
+repository. They are not runnable in the current docs-only repository state.
 
 ```bash
 # Build everything
@@ -411,6 +454,15 @@ cd sdk/typescript && npm run build
 
 If you are new to this codebase, read in this order:
 
+Current repository state:
+
+1. `protocol-spec/overview.md` — understand the contract as currently documented
+2. `ARCHITECTURE.md` — understand the top-level system model
+3. `docs/architecture/README.md` — find the current architecture notes and diagram sources
+4. `docs/architecture/2026-03-25-kernel-protocol-architecture.md` — the approved Kernel + Protocol refresh note
+
+Target implementation state:
+
 1. `protocol-spec/overview.md` — understand the contract before the implementation
 2. `protocol-spec/constraints.md` — the six invariants everything else serves
 3. `crates/kernel-api/src/lib.rs` — the four public methods; this is the whole surface
@@ -420,4 +472,5 @@ If you are new to this codebase, read in this order:
 7. `crates/agent-protocol/tests/compliance/` — what correct behaviour looks like
 
 The compliance tests are executable documentation. When in doubt about
-what the correct behaviour is, read the compliance tests first.
+what the correct behaviour is in the target implementation workspace, read the
+compliance tests first.

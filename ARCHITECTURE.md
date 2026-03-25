@@ -111,7 +111,9 @@ enforces it. Frameworks must conform to it. This ordering matters: the
 Protocol is the specification, and the Kernel is one implementation of
 that specification. Third parties can implement the Protocol
 independently. The compliance test suite, not the Kernel's source code,
-is the authoritative definition of correctness.
+is the authoritative definition of correctness. In the current repository
+state, that suite is part of the planned implementation layout rather than a
+checked-in asset.
 
 ---
 
@@ -259,8 +261,9 @@ implements the Protocol and provides the enforcement layer.
 A third party may implement the Protocol independently. Compatibility is
 defined by the compliance test suite in
 `crates/agent-protocol/tests/compliance/`, not by the Kernel's source
-code. Any system that passes the compliance suite is a conformant
-Protocol implementation.
+code. In the current repository state that suite is not present yet; this path
+describes the intended implementation layout. Any system that passes the
+compliance suite is a conformant Protocol implementation.
 
 This separation is intentional. The Protocol is a standard. Standards
 outlive implementations. The compliance test suite is the authoritative
@@ -272,9 +275,16 @@ definition of correctness, and it belongs to the community.
 
 There are three ways external systems interact with the Kernel.
 
+The descriptions below combine:
+
+- The current repository state, which contains architecture and protocol
+  documents only
+- The target implementation state, which would contain the Rust workspace,
+  SDKs, and compliance suite referenced in this document
+
 ### 1. Runtime integration
 
-The most common integration path. A Runtime calls the Kernel via
+The most common target integration path. A Runtime calls the Kernel via
 `kernel-api` to spawn Agents and execute actions.
 
 ```
@@ -291,7 +301,8 @@ logging, or isolation. These are provided by the Kernel unconditionally.
 The Runtime's responsibility is to call `invoke` for every action and
 to handle the returned `ProtocolError` variants correctly.
 
-SDKs for Rust, Python, and TypeScript are provided in `sdk/`.
+In the target implementation workspace, SDKs for Rust, Python, and TypeScript
+would live in `sdk/`.
 
 ### 2. Protocol implementation
 
@@ -299,7 +310,8 @@ A Framework or Runtime that wants to implement the Protocol directly,
 rather than using `kernel-api`, must:
 
 - Implement the five interface families in `agent-protocol`.
-- Pass the full compliance test suite.
+- Pass the full compliance test suite once the target implementation
+  workspace and suite are present.
 - Handle all six semantic constraints correctly.
 
 Implementing the Protocol without the Kernel is possible but means
@@ -411,7 +423,8 @@ not a parsing problem.
 
 - `AGENTS.md` — engineering rules for contributors to this repository
 - `protocol-spec/overview.md` — the Agent Protocol specification
-- `protocol-spec/constraints.md` — the six mandatory semantic constraints
-- `crates/agent-protocol/tests/compliance/` — the compliance test suite
-- `docs/compliance/` — SOC 2, GDPR, and ISO 27001 mapping tables
-- `sdk/` — integration SDKs for Rust, Python, and TypeScript
+- `docs/architecture/README.md` — current architecture notes and diagram sources
+- `protocol-spec/constraints.md` — planned location for the six mandatory semantic constraints
+- `crates/agent-protocol/tests/compliance/` — planned location for the compliance test suite
+- `docs/compliance/` — planned location for SOC 2, GDPR, and ISO 27001 mapping tables
+- `sdk/` — planned location for integration SDKs for Rust, Python, and TypeScript
