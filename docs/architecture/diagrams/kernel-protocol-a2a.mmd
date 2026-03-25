@@ -1,0 +1,17 @@
+flowchart TD
+    a[Agent A<br/>caller handle + caller caps]
+    call[CallAgent(target_id, payload, caps_hint?)]
+
+    subgraph invoke[Kernel invoke path]
+        v1[1. validate caller handle]
+        v2[2. lookup target agent]
+        v3[3. delegated_caps = caller_caps ∩ target_caps]
+        v4[4. create child span]
+        v5[5. preserve run_id + set parent_span_id]
+        v6[6. write audit log entry]
+        v7[7. dispatch child invocation]
+    end
+
+    b[Agent B<br/>executes with delegated_caps only]
+
+    a --> call --> v1 --> v2 --> v3 --> v4 --> v5 --> v6 --> v7 --> b

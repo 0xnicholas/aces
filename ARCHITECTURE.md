@@ -98,11 +98,11 @@ it is structurally impossible to delegate authority you do not have.
 ### 4. Full traceability
 
 Every action must be observable, attributable, and auditable. The audit
-log uses WAL semantics — an entry is written before the action executes,
-not after. Entries form an integrity chain: each entry contains the hash
-of its predecessor. The chain can be independently verified by anyone
-with access to the log. Traceability is not a feature that can be turned
-off; it is a property of the system.
+log uses WAL semantics — an entry is durably written before the result
+becomes observable, and entries form an integrity chain where each entry
+contains the hash of its predecessor. The chain can be independently
+verified by anyone with access to the log. Traceability is not a feature
+that can be turned off; it is a property of the system.
 
 ### 5. Protocol-first architecture
 
@@ -167,26 +167,31 @@ from the flat log.
 │           Framework / Orchestration                 │  L2
 │     (LangGraph, AutoGen, CrewAI, or custom)         │
 └──────────────────────────┬──────────────────────────┘
-                           │  Agent Protocol
+                           │
 ┌──────────────────────────▼──────────────────────────┐
 │                  Agent Runtime                      │  L3
 │          (reasoning loop, context, state)           │
 └──────────────────────────┬──────────────────────────┘
-                           │  kernel-api
+                           │  Agent Protocol contract boundary
 ┌──────────────────────────▼──────────────────────────┐
 │                                                     │
 │                  Agent Kernel                       │  L4
 │                                                     │
-│  ┌─────────────┐  ┌───────────┐  ┌──────────────┐  │
-│  │  Permission │  │ Scheduler │  │   Sandbox    │  │
-│  │   Engine    │  │           │  │  Isolation   │  │
-│  └─────────────┘  └───────────┘  └──────────────┘  │
 │  ┌─────────────────────────────────────────────┐    │
-│  │              Audit Log (WAL)                │    │
+│  │      Protocol Runtime (embedded module)     │    │
+│  │      kernel-api entry and normalization     │    │
 │  └─────────────────────────────────────────────┘    │
-│  ┌─────────────────────────────────────────────┐    │
-│  │          Protocol Runtime (embedded)        │    │
-│  └─────────────────────────────────────────────┘    │
+│                                                     │
+│  ┌──────────────┐  ┌───────────┐  ┌──────────────┐  │
+│  │  Identity /  │  │ Permission│  │  Scheduler   │  │
+│  │  Handle      │  │   Engine   │  │              │  │
+│  │  Validation  │  └───────────┘  └──────────────┘  │
+│  └──────────────┘  ┌───────────┐  ┌──────────────┐  │
+│                     │ Sandbox  │  │ Audit Log    │  │
+│                     │ Isolation│  │ (WAL +       │  │
+│                     └───────────┘  │ Integrity    │  │
+│                                     │ Chain)      │  │
+│                                     └─────────────┘  │
 │                                                     │
 └──────────────────────────┬──────────────────────────┘
                            │
@@ -203,16 +208,26 @@ Agent → Protocol → Kernel → Substrate
 ```
 
 No direct Agent-to-Substrate path exists. No Agent-to-Agent call
-bypasses the Kernel. The Protocol is not an optional adapter — it is
-the only channel through which the Kernel can be reached.
+bypasses the Kernel. The Protocol is an external contract boundary, not
+an optional adapter, and it is the only channel through which the Kernel
+can be reached.
+
+Actions that reach the Execution Substrate enter through `invoke`, and
+their results do not become observable until the required audit
+persistence completes.
+
+In the common integration path, `kernel-api` is the Kernel surface used
+by the Runtime to reach the embedded `Protocol Runtime`.
 
 ---
 
 ## The Agent Protocol
 
-The Agent Protocol is an open, implementation-independent specification.
-It is published separately under the MIT licence and governed
-independently of the Kernel implementation.
+The Agent Protocol is an open, implementation-independent standard. It is
+published separately under the MIT licence and governs integrations
+independently of any particular Kernel implementation. The Kernel product
+contains a concrete `Protocol Runtime` module that implements that
+standard.
 
 ### What the Protocol defines
 
@@ -238,9 +253,8 @@ And six mandatory semantic constraints:
 ### Relationship between Protocol and Kernel
 
 The Protocol defines what correct behaviour looks like.
-The Kernel is one implementation of the Protocol — specifically, the
-reference implementation, the one that embeds the Protocol Runtime and
-provides the enforcement layer.
+The Kernel product contains a concrete `Protocol Runtime` that
+implements the Protocol and provides the enforcement layer.
 
 A third party may implement the Protocol independently. Compatibility is
 defined by the compliance test suite in

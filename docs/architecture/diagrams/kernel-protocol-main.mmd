@@ -1,0 +1,30 @@
+flowchart TB
+    apps[Agent Applications]
+    fw[Agent Framework / Orchestration]
+    rt[Agent Runtime]
+    proto[Agent Protocol<br/>Open Spec / Contract]
+
+    subgraph kernel[Agent Kernel]
+        direction TB
+        pr[Protocol Runtime]
+
+        subgraph kernel_modules[Kernel Modules]
+            direction LR
+            idv[Identity / Handle Validation]
+            pe[Permission Engine]
+            ar[Agent Registry]
+            sch[Scheduler]
+            sb[Sandbox]
+            audit[Audit Log<br/>WAL + Integrity Chain]
+        end
+    end
+
+    substrate[Execution Substrate + Service Registry]
+
+    apps --- fw --- rt --- proto --- pr --- substrate
+    pr --- idv
+    pr --- pe
+    pr --- ar
+    pr --- sch
+    pr --- sb
+    pr --- audit

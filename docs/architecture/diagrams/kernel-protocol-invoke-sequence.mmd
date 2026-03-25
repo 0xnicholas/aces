@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant Runtime as Agent Runtime
+    participant Protocol as Agent Protocol
+    participant PR as Protocol Runtime
+    participant Identity as Identity / Handle Validation
+    participant Policy as Permission Engine
+    participant Scheduler
+    participant Sandbox
+    participant Audit as Audit Log
+
+    Runtime->>Protocol: invoke(action)
+    Protocol->>PR: normalized request
+    PR->>Identity: validate handle
+    Identity-->>PR: valid
+    PR->>Policy: evaluate capabilities
+    Policy-->>PR: allowed
+    PR->>Scheduler: reserve / enqueue
+    Scheduler-->>PR: slot granted
+    PR->>Sandbox: execute action
+    Sandbox-->>PR: action result
+    PR->>Audit: append WAL entry
+    Audit-->>PR: durable write complete
+    PR-->>Runtime: ActionResult
