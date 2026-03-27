@@ -3,34 +3,72 @@
 //! All errors returned across the Protocol boundary are structured variants
 //! of the `ProtocolError` enum. No untyped strings are permitted.
 
+use crate::types::{Action, AgentId, Capability, RunId};
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use thiserror::Error;
 
+/// Resource types that can be exhausted
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ResourceKind {
+    LlmConcurrency,
+    ToolCallRate,
+    ContextBudget,
+    ComputeQuota,
+}
+
+/// Reasons a handle might be invalid
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum HandleInvalidReason {
+    Expired,
+    Revoked,
+    Unrecognised,
+}
+
+/// Human decision for interrupt confirmation
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum HumanDecision {
+    Approve,
+    ApproveWithModification { modified_action: Action },
+    Reject { reason: String },
+}
+
+/// Opaque token for interrupt operations
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct InterruptToken(pub String);
+
 /// All errors returned across the Protocol boundary
-#[derive(Error, Debug, Clone, PartialEq)]
+#[non_exhaustive]
+#[derive(Error, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ProtocolError {
     /// Capability check failed; action not permitted
     #[error("PolicyViolation: action not permitted")]
     PolicyViolation {
-        action: String,
-        missing_cap: String,
-        agent_id: String,
+        action: Action,
+        missing_cap: Capability,
+        agent_id: AgentId,
     },
 
     /// Scheduler budget exhausted; retry after backoff
-    #[error("ResourceExhausted: {resource}, retry after: {retry_after:?}")]
+    #[error("ResourceExhausted: {resource:?}, retry after: {retry_after:?}")]
     ResourceExhausted {
-        resource: String,
+        resource: ResourceKind,
         retry_after: Option<Duration>,
     },
 
     /// HITL confirmation pending; call confirm() to resume
     #[error("Interrupted: confirmation required")]
-    Interrupted { token: String, rejected: bool },
+    Interrupted {
+        token: InterruptToken,
+        rejected: bool,
+    },
 
     /// Action exceeded the configured time limit
     #[error("Timeout: action exceeded limit of {limit:?}")]
-    Timeout { action: String, limit: Duration },
+    Timeout { action: Action, limit: Duration },
 
     /// Context window budget exceeded
     #[error("ContextOverflow: {current} tokens exceeds limit of {limit}")]
@@ -38,7 +76,7 @@ pub enum ProtocolError {
 
     /// Cancelled by an upstream cancel() call
     #[error("Cancelled: run {run_id} was cancelled")]
-    Cancelled { run_id: String },
+    Cancelled { run_id: RunId },
 
     /// Audit chain verification failed
     #[error("AuditIntegrityError: chain broken at seq {seq}")]
@@ -49,8 +87,8 @@ pub enum ProtocolError {
     },
 
     /// KernelHandle is expired or revoked
-    #[error("InvalidHandle: {reason}")]
-    InvalidHandle { reason: String },
+    #[error("InvalidHandle: {reason:?}")]
+    InvalidHandle { reason: HandleInvalidReason },
 
     /// Protocol violation (malformed request)
     #[error("ProtocolViolation: {detail}")]

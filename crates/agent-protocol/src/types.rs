@@ -1,11 +1,13 @@
 //! Core types for the Agent Protocol
 
 use crate::errors::ProtocolError;
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::fmt;
 use uuid::Uuid;
 
 /// Unique identifier for an Agent
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AgentId(pub Uuid);
 
 impl AgentId {
@@ -27,7 +29,7 @@ impl fmt::Display for AgentId {
 }
 
 /// Unique identifier for a specific run/invocation
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RunId(pub Uuid);
 
 impl RunId {
@@ -49,7 +51,7 @@ impl fmt::Display for RunId {
 }
 
 /// Unique identifier for a span in a trace
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SpanId(pub Uuid);
 
 impl SpanId {
@@ -70,16 +72,32 @@ impl fmt::Display for SpanId {
     }
 }
 
+/// Opaque, unforgeable token inside a KernelHandle
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct HandleId(pub Uuid);
+
+impl HandleId {
+    pub fn new() -> Self {
+        Self(Uuid::new_v4())
+    }
+}
+
+impl Default for HandleId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A set of capabilities granted to an Agent
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CapabilitySet {
-    pub capabilities: Vec<Capability>,
+    pub capabilities: HashSet<Capability>,
 }
 
 impl CapabilitySet {
     pub fn new() -> Self {
         Self {
-            capabilities: Vec::new(),
+            capabilities: HashSet::new(),
         }
     }
 
@@ -88,13 +106,28 @@ impl CapabilitySet {
     }
 
     pub fn with_capability(mut self, cap: Capability) -> Self {
-        self.capabilities.push(cap);
+        self.capabilities.insert(cap);
         self
+    }
+
+    pub fn contains(&self, cap: &Capability) -> bool {
+        self.capabilities.contains(cap)
+    }
+
+    pub fn intersection(&self, other: &CapabilitySet) -> CapabilitySet {
+        CapabilitySet {
+            capabilities: self
+                .capabilities
+                .intersection(&other.capabilities)
+                .cloned()
+                .collect(),
+        }
     }
 }
 
 /// Individual capability
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Capability {
     /// Read from a specific tool
     ToolRead { tool_id: String },
@@ -107,7 +140,8 @@ pub enum Capability {
 }
 
 /// Action to be executed by the Kernel
-#[derive(Debug, Clone)]
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Action {
     /// Call a tool
     ToolCall {
@@ -129,7 +163,8 @@ pub enum Action {
 }
 
 /// Result of executing an action
-#[derive(Debug, Clone)]
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ActionResult {
     /// Success with value
     Success(serde_json::Value),
@@ -138,9 +173,10 @@ pub enum ActionResult {
 }
 
 /// Opaque handle for Agent operations
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KernelHandle {
     pub agent_id: AgentId,
+    pub handle_id: HandleId,
     pub capabilities: CapabilitySet,
 }
 
@@ -148,13 +184,14 @@ impl KernelHandle {
     pub fn new(agent_id: AgentId, capabilities: CapabilitySet) -> Self {
         Self {
             agent_id,
+            handle_id: HandleId::new(),
             capabilities,
         }
     }
 }
 
 /// Agent definition for spawning
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentDef {
     pub name: String,
     pub config: serde_json::Value,
@@ -175,7 +212,7 @@ impl AgentDef {
 }
 
 /// Audit filter for querying logs
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AuditFilter {
     pub from_timestamp: Option<u64>,
     pub to_timestamp: Option<u64>,
@@ -184,7 +221,7 @@ pub struct AuditFilter {
 }
 
 /// Log entry in the audit trail
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogEntry {
     pub sequence: u64,
     pub timestamp: u64,
@@ -197,9 +234,114 @@ pub struct LogEntry {
 }
 
 /// Summary returned when an Agent is revoked
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunSummary {
     pub run_id: RunId,
     pub actions_executed: u64,
     pub final_status: String,
+}
+
+/// Checkpoint for suspend/resume operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Checkpoint {
+    pub agent_id: AgentId,
+    pub state: Vec<u8>,
+}
+
+/// Context value for memory operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextValue {
+    pub data: Vec<u8>,
+}
+
+/// Context snapshot for persistence
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextSnapshot {
+    pub data: Vec<u8>,
+    pub timestamp: u64,
+}
+
+/// Chunk for streaming responses
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Chunk {
+    pub data: Vec<u8>,
+    pub is_final: bool,
+}
+
+/// Agent event for signal/event interface
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentEvent {
+    pub event_type: String,
+    pub payload: serde_json::Value,
+}
+
+/// Event filter for subscriptions
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct EventFilter {
+    pub event_types: Vec<String>,
+}
+
+/// Agent signal for interrupt
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AgentSignal {
+    /// Human in the loop required
+    HumanInTheLoop,
+    /// Cancel current operation
+    Cancel,
+}
+
+/// Risk level for operations
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RiskLevel {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+/// Span context for observability
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpanContext {
+    pub span_id: SpanId,
+    pub parent_id: Option<SpanId>,
+}
+
+/// Lifecycle event types
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LifecycleEvent {
+    /// Agent spawned
+    Spawned,
+    /// Agent suspended
+    Suspended,
+    /// Agent resumed
+    Resumed,
+    /// Agent terminated
+    Terminated,
+}
+
+/// Context key for memory operations
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ContextKey(pub String);
+
+/// Semantic query for context search
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SemanticQuery {
+    pub query: String,
+    pub embedding: Option<Vec<f32>>,
+}
+
+/// Message for LLM inference
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Message {
+    pub role: String,
+    pub content: String,
+}
+
+/// Inference parameters
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct InferParams {
+    pub temperature: Option<f32>,
+    pub max_tokens: Option<u32>,
 }

@@ -78,6 +78,7 @@ pub use types::*;
 // Re-export error types
 pub use errors::{
     error_priority, compare_by_priority, ProtocolError,
+    ResourceKind, HandleInvalidReason, HumanDecision, InterruptToken,
 };
 
 // Re-export interfaces
