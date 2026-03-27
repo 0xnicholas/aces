@@ -1,0 +1,18 @@
+[package]
+name = "agent-protocol"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Agent Protocol - Open specification for Agent communication"
+repository = "https://github.com/0xnicholas/aces"
+readme = "../../README.md"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+uuid = { version = "1.6", features = ["v4", "serde"] }
+thiserror = "1.0"
+async-trait = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
+serde_json = "1.0"
