@@ -11,9 +11,9 @@ pub mod interfaces;
 pub mod types;
 
 // Re-export commonly used types
+pub use errors::ProtocolError;
+pub use interfaces::*;
 pub use types::*;
-// pub use errors::ProtocolError;
-// pub use interfaces::*;
 
 #[cfg(test)]
 mod tests {
