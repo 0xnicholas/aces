@@ -325,21 +325,28 @@ Any system may subscribe to the Kernel's audit stream and trace hooks
 for monitoring, alerting, or compliance reporting. The audit log is
 append-only and exports to structured JSON and OpenTelemetry.
 
-Audit entries follow this schema:
+Audit entries follow this schema (simplified; see [protocol-spec/overview.md](protocol-spec/overview.md) §10 for the complete LogEntry definition):
 
 ```
-{
-  seq:         monotonic sequence number (global, cross-agent)
-  run_id:      top-level task identifier (propagated through call tree)
-  agent_id:    the Agent that initiated the action
-  parent_span_id: the parent span (enables call graph reconstruction)
-  action:      { type, target, params_hash }
-  caps_scope:  the capability set active at execution time
-  result:      { status, error_type? }
-  ts:          UTC nanosecond timestamp
-  integrity:   SHA-256 of the preceding entry
+LogEntry {
+  seq:            u64,                    // monotonic, global, gapless
+  run_id:         RunId,                  // top-level task identifier
+  span_id:        SpanId,                 // step within the run
+  parent_span_id: SpanId?,                // enables call graph reconstruction
+  agent_id:       AgentId,                // Agent that initiated the action
+  action:         Action,                 // typed action details
+  caps_scope:     CapabilitySet,          // capabilities active at execution
+  result: {
+    status:       Pending | Ok | Err,
+    error_type:   ProtocolError?,         // variant name if status is Err
+    payload_hash: Bytes?,                 // SHA-256 of response payload
+  },
+  ts:             Timestamp,              // UTC nanoseconds
+  integrity:      Bytes,                  // SHA-256 hash chain
 }
 ```
+
+Where `integrity[N] = SHA-256( encode(entry[N]) || integrity[N-1] )` forms a tamper-evident chain.
 
 The `integrity` field enables independent verification. Any party with
 access to the log can verify the chain without trusting the Kernel.

@@ -1,0 +1,145 @@
+# ContextIO Scopes
+
+This diagram visualizes the three ContextIO scopes (Session, Agent, Shared) and their lifecycles, access patterns, and required capabilities.
+
+## Scope Overview
+
+```mermaid
+flowchart LR
+    subgraph scopes["Context Scopes"]
+        direction TB
+        session["Session Scope"]
+        agent["Agent Scope"]
+        shared["Shared Scope"]
+    end
+    
+    subgraph lifetimes["Lifetime"]
+        direction TB
+        life_session["Current Run Only"]
+        life_agent["Across Runs"]
+        life_shared["Persistent"]
+    end
+    
+    subgraph access["Access Pattern"]
+        direction TB
+        acc_session["Single Agent"]
+        acc_agent["Single Agent"]
+        acc_shared["Multiple Agents"]
+    end
+    
+    subgraph caps["Required Capability"]
+        direction TB
+        cap_session["MemoryRead/Write<br/>{ scope: Session }"]
+        cap_agent["MemoryRead/Write<br/>{ scope: Agent }"]
+        cap_shared["MemoryRead/Write<br/>{ scope: Shared }"]
+    end
+    
+    session --> life_session --> acc_session --> cap_session
+    agent --> life_agent --> acc_agent --> cap_agent
+    shared --> life_shared --> acc_shared --> cap_shared
+    
+    style session fill:#e1f5e1,stroke:#333
+    style agent fill:#e3f2fd,stroke:#333
+    style shared fill:#fff3e0,stroke:#333
+```
+
+## Scope Comparison Table
+
+| Scope | Lifetime | Access | Use Case | Capability Required |
+|-------|----------|--------|----------|-------------------|
+| **Session** | Current run only | This Agent only | Temporary working memory | `MemoryRead { scope: Session }`<br/>`MemoryWrite { scope: Session }` |
+| **Agent** | Across runs | This Agent only | Persistent agent memory | `MemoryRead { scope: Agent }`<br/>`MemoryWrite { scope: Agent }` |
+| **Shared** | Across runs | Multiple Agents | Cross-agent collaboration | `MemoryRead { scope: Shared }`<br/>`MemoryWrite { scope: Shared }` |
+
+## Key Rules
+
+1. **Explicit Scope Required** - Implementations MUST NOT infer cross-Agent memory access from a lower-scope capability. Writing to `Shared` scope requires explicit `MemoryWrite { scope: Shared }`.
+
+2. **No Automatic Escalation** - Having `MemoryRead { scope: Agent }` does NOT grant access to `Shared` scope.
+
+3. **Isolation Boundaries** - Session scope is completely isolated per-run. Agent scope persists but is private to that Agent. Shared scope is the only cross-Agent channel.
+
+## ContextIO Operations by Scope
+
+```mermaid
+flowchart TD
+    subgraph ops["ContextIO Operations"]
+        read["context_read"]
+        write["context_write"]
+        search["context_search"]
+        snapshot["snapshot"]
+        restore["restore"]
+    end
+    
+    subgraph session_ops["Session Scope"]
+        s_read["✓ Read"]
+        s_write["✓ Write"]
+        s_search["✓ Search"]
+        s_snapshot["✓ Snapshot"]
+        s_restore["✓ Restore"]
+    end
+    
+    subgraph agent_ops["Agent Scope"]
+        a_read["✓ Read"]
+        a_write["✓ Write"]
+        a_search["✓ Search"]
+        a_snapshot["✓ Snapshot"]
+        a_restore["✓ Restore"]
+    end
+    
+    subgraph shared_ops["Shared Scope"]
+        sh_read["✓ Read"]
+        sh_write["✓ Write*"]
+        sh_search["✓ Search"]
+        sh_snapshot["✗ N/A"]
+        sh_restore["✗ N/A"]
+    end
+    
+    read --> s_read & a_read & sh_read
+    write --> s_write & a_write & sh_write
+    search --> s_search & a_search & sh_search
+    snapshot --> s_snapshot & a_snapshot
+    restore --> s_restore & a_restore
+```
+
+*Note: Shared scope write (`sh_write`) requires explicit `MemoryWrite { scope: Shared }` capability.
+
+## Lifecycle Visualization
+
+```mermaid
+flowchart LR
+    subgraph run1["Run 1"]
+        r1_session["Session Data<br/>(Run 1)"]
+        r1_agent["Agent Data"]
+        r1_shared["Shared Data"]
+    end
+    
+    subgraph run2["Run 2"]
+        r2_session["Session Data<br/>(Run 2)"]
+        r2_agent["Agent Data<br/>(persisted)"]
+        r2_shared["Shared Data<br/>(persisted)"]
+    end
+    
+    subgraph run3["Run 3"]
+        r3_session["Session Data<br/>(Run 3)"]
+        r3_agent["Agent Data<br/>(persisted)"]
+        r3_shared["Shared Data<br/>(persisted)"]
+    end
+    
+    r1_agent -.->|persisted| r2_agent
+    r2_agent -.->|persisted| r3_agent
+    r1_shared -.->|persisted| r2_shared
+    r2_shared -.->|persisted| r3_shared
+    
+    style r1_session fill:#ffcdd2,stroke:#333
+    style r2_session fill:#ffcdd2,stroke:#333
+    style r3_session fill:#ffcdd2,stroke:#333
+```
+
+## Implementation Notes
+
+- **Session** data is typically stored in-memory and lost after the run completes
+- **Agent** data requires persistent storage (database, file system, etc.)
+- **Shared** data requires concurrent access controls and conflict resolution
+- All scopes support `context_read`, `context_write`, and `context_search`
+- Only Session and Agent scopes support `snapshot` and `restore` operations

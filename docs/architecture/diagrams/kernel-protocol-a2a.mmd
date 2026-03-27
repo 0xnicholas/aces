@@ -1,17 +1,46 @@
 flowchart TD
-    a[Agent A<br/>caller handle + caller caps]
-    call[CallAgent(target_id, payload, caps_hint?)]
+    a["Agent A<br/>caller handle + caller_caps"]
+    call["CallAgent<br/>(target_id, payload, caps_hint?)"]
 
-    subgraph invoke[Kernel invoke path]
-        v1[1. validate caller handle]
-        v2[2. lookup target agent]
-        v3[3. delegated_caps = caller_caps ∩ target_caps]
-        v4[4. create child span]
-        v5[5. preserve run_id + set parent_span_id]
-        v6[6. write audit log entry]
-        v7[7. dispatch child invocation]
+    subgraph invoke["Kernel invoke path"]
+        v1{"1. Validate Caller Handle"}
+        v2{"2. Check AgentCall Capability"}
+        v3{"3. Lookup Target Agent"}
+        v4{"4. Compute delegated_caps<br/>caller ∩ target"}
+        v5["5. Create Child Span"]
+        v6["6. Write Audit Entry"]
+        v7["7. Dispatch Child Invocation"]
+        
+        e1["Error: InvalidHandle"]
+        e2["Error: PolicyViolation<br/>Missing AgentCall"]
+        e3["Error: PolicyViolation<br/>Target Not Found"]
+        e4["Error: PolicyViolation<br/>No Common Capabilities"]
     end
 
-    b[Agent B<br/>executes with delegated_caps only]
+    b["Agent B<br/>executes with delegated_caps only"]
 
-    a --> call --> v1 --> v2 --> v3 --> v4 --> v5 --> v6 --> v7 --> b
+    a --> call --> v1
+    v1 -->|Valid| v2
+    v1 -->|Invalid/Expired/Revoked| e1
+    v2 -->|Has AgentCall| v3
+    v2 -->|Missing| e2
+    v3 -->|Found| v4
+    v3 -->|Not Found| e3
+    v4 -->|Intersection Non-Empty| v5
+    v4 -->|Empty Set| e4
+    v5 --> v6 --> v7 --> b
+    
+    e1 --> audit_error["Write Audit: Error"]
+    e2 --> audit_error
+    e3 --> audit_error
+    e4 --> audit_error
+    audit_error --> return_error["Return ProtocolError<br/>to Agent A"]
+
+    style v1 fill:#fff,stroke:#333
+    style v2 fill:#fff,stroke:#333
+    style v3 fill:#fff,stroke:#333
+    style v4 fill:#fff,stroke:#333
+    style e1 fill:#ffcdd2,stroke:#333
+    style e2 fill:#ffcdd2,stroke:#333
+    style e3 fill:#ffcdd2,stroke:#333
+    style e4 fill:#ffcdd2,stroke:#333

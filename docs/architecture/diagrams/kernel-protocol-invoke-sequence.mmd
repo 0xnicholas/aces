@@ -8,16 +8,35 @@ sequenceDiagram
     participant Sandbox
     participant Audit as Audit Log
 
-    Runtime->>Protocol: invoke(action)
+    Note over Runtime,Audit: Critical Path: 6 steps, ALL must complete before result returned
+
+    Runtime->>Protocol: ① invoke(action)
     Protocol->>PR: normalized request
+    
+    Note right of PR: Step 1: Identity Validation
     PR->>Identity: validate handle
     Identity-->>PR: valid
+    
+    Note right of PR: Step 2: Capability Check
     PR->>Policy: evaluate capabilities
-    Policy-->>PR: allowed
+    Policy-->>PR: permitted
+    
+    Note right of PR: Step 3: Resource Scheduling
     PR->>Scheduler: reserve / enqueue
     Scheduler-->>PR: slot granted
+    
+    Note right of PR: Step 4: Isolated Execution
     PR->>Sandbox: execute action
     Sandbox-->>PR: action result
-    PR->>Audit: append WAL entry
-    Audit-->>PR: durable write complete
+    
+    Note right of PR: Step 5: Audit WAL Write (CRITICAL)
+    rect rgb(255, 238, 221)
+        PR->>Audit: append WAL entry
+        Note right of Audit: Must be durable before result observable
+        Audit-->>PR: durable write complete
+    end
+    
+    Note right of PR: Step 6: Return Result
     PR-->>Runtime: ActionResult
+    
+    Note over Runtime,Audit: Invariant: Result NOT observable until Step 5 completes

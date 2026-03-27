@@ -1,0 +1,83 @@
+# Error Handling Flow
+
+This diagram shows all 8 ProtocolError types and their handling paths through the Kernel.
+
+## Error Classification and Flow
+
+```mermaid
+flowchart TD
+    start([Error Occurs]) --> classify{Error Classification}
+    
+    classify -->|Handle Validation| h1{Valid?}
+    classify -->|Capability Check| c1{Permitted?}
+    classify -->|Resource Check| r1{Available?}
+    classify -->|Execution Phase| e1{Success?}
+    
+    h1 -->|No| eh[InvalidHandle]
+    h1 -->|Yes| c1
+    c1 -->|No| ec[PolicyViolation]
+    c1 -->|Yes| r1
+    r1 -->|No| er[ResourceExhausted]
+    r1 -->|Yes| exec[Execute Action]
+    exec -->|Timeout| et[Timeout]
+    exec -->|Interrupted| ei[Interrupted]
+    exec -->|Context Full| eco[ContextOverflow]
+    exec -->|Parent Cancelled| eca[Cancelled]
+    exec -->|Success| audit_ok[Write Audit: Ok]
+    
+    eh --> audit_eh[Audit: InvalidHandle]
+    ec --> audit_ec[Audit: PolicyViolation]
+    er --> audit_er[Audit: ResourceExhausted + Retry-After]
+    et --> audit_et[Audit: Timeout]
+    ei --> audit_ei[Audit: Interrupted + Token]
+    eco --> audit_eco[Audit: ContextOverflow]
+    eca --> audit_eca[Audit: Cancelled]
+    
+    subgraph integrity[Audit Integrity Check]
+        check{Chain Valid?}
+        check -->|No| eai[AuditIntegrityError]
+    end
+    
+    eai --> audit_eai[Audit: IntegrityError + Alert]
+    
+    audit_ok --> return_ok[Return ActionResult]
+    audit_eh & audit_ec & audit_er & audit_et & audit_ei & audit_eco & audit_eca & audit_eai --> return_err[Return ProtocolError]
+    
+    style integrity fill:#f9f,stroke:#333
+    style eh fill:#faa,stroke:#333
+    style ec fill:#faa,stroke:#333
+    style er fill:#faa,stroke:#333
+    style et fill:#faa,stroke:#333
+    style ei fill:#faa,stroke:#333
+    style eco fill:#faa,stroke:#333
+    style eca fill:#faa,stroke:#333
+    style eai fill:#faa,stroke:#333
+```
+
+## Error Reference Table
+
+| Error | Trigger Condition | Audit Entry | Special Handling |
+|-------|------------------|-------------|------------------|
+| **InvalidHandle** | KernelHandle expired, revoked, or unrecognised | Yes | Immediate rejection |
+| **PolicyViolation** | Action not permitted by CapabilitySet | Yes | Most common error |
+| **ResourceExhausted** | Scheduler budget or quota exceeded | Yes + Retry-After | Client should backoff |
+| **Timeout** | Action exceeded configured time limit | Yes | Cleanup required |
+| **Interrupted** | Human confirmation required | Yes + Token | Resume via `confirm()` |
+| **ContextOverflow** | Context window budget exceeded | Yes | State management issue |
+| **Cancelled** | Parent run invoked `cancel()` | Yes | Cascade to children |
+| **AuditIntegrityError** | Hash chain verification failed | Yes + Alert | Log corruption detected |
+
+## Key Invariants
+
+1. **All errors are audited** - Every error path writes to the audit log before returning
+2. **Error ordering** - InvalidHandle → PolicyViolation → ResourceExhausted → others
+3. **Structured only** - No untyped strings; all errors are ProtocolError variants
+4. **Audit integrity** - AuditIntegrityError is special: it indicates log corruption, not action failure
+
+## Error vs Audit Status
+
+Note the distinction:
+- **Error**: The action failed (returned Err variant)
+- **Audit Status**: The audit entry recording what happened
+
+Example: A PolicyViolation error still has `status: Err` in its audit entry, with `error_type: PolicyViolation`.
