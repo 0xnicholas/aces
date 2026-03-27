@@ -345,3 +345,200 @@ pub struct InferParams {
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ========== Identity Types Tests ==========
+
+    #[test]
+    fn agent_id_creation_and_uniqueness() {
+        // RED: Write test expecting unique IDs
+        // GREEN: Implementation uses Uuid::new_v4()
+        let id1 = AgentId::new();
+        let id2 = AgentId::new();
+        assert_ne!(id1, id2, "Each AgentId should be unique");
+    }
+
+    #[test]
+    fn agent_id_default_creates_new() {
+        let id1: AgentId = Default::default();
+        let id2: AgentId = Default::default();
+        assert_ne!(id1, id2, "Default should create unique IDs");
+    }
+
+    #[test]
+    fn agent_id_display_format() {
+        let id = AgentId::new();
+        let display = format!("{}", id);
+        // Should display as UUID string
+        assert!(!display.is_empty());
+        assert_eq!(display.len(), 36, "UUID should be 36 chars");
+    }
+
+    #[test]
+    fn run_id_creation_and_uniqueness() {
+        let id1 = RunId::new();
+        let id2 = RunId::new();
+        assert_ne!(id1, id2, "Each RunId should be unique");
+    }
+
+    #[test]
+    fn span_id_creation_and_uniqueness() {
+        let id1 = SpanId::new();
+        let id2 = SpanId::new();
+        assert_ne!(id1, id2, "Each SpanId should be unique");
+    }
+
+    #[test]
+    fn handle_id_creation_and_uniqueness() {
+        let id1 = HandleId::new();
+        let id2 = HandleId::new();
+        assert_ne!(id1, id2, "Each HandleId should be unique");
+    }
+
+    // ========== Serde Tests ==========
+
+    #[test]
+    fn agent_id_serde_roundtrip() {
+        let id = AgentId::new();
+        let json = serde_json::to_string(&id).unwrap();
+        let decoded: AgentId = serde_json::from_str(&json).unwrap();
+        assert_eq!(id, decoded);
+    }
+
+    #[test]
+    fn run_id_serde_roundtrip() {
+        let id = RunId::new();
+        let json = serde_json::to_string(&id).unwrap();
+        let decoded: RunId = serde_json::from_str(&json).unwrap();
+        assert_eq!(id, decoded);
+    }
+
+    #[test]
+    fn capability_set_serde_roundtrip() {
+        let set = CapabilitySet::new().with_capability(Capability::ToolRead {
+            tool_id: "test".to_string(),
+        });
+        let json = serde_json::to_string(&set).unwrap();
+        let decoded: CapabilitySet = serde_json::from_str(&json).unwrap();
+        assert_eq!(set, decoded);
+    }
+
+    // ========== CapabilitySet Tests ==========
+
+    #[test]
+    fn capability_set_new_is_empty() {
+        let set = CapabilitySet::new();
+        assert!(set.capabilities.is_empty());
+    }
+
+    #[test]
+    fn capability_set_with_capability_adds() {
+        let cap = Capability::ToolRead {
+            tool_id: "test".to_string(),
+        };
+        let set = CapabilitySet::new().with_capability(cap.clone());
+        assert!(set.capabilities.contains(&cap));
+    }
+
+    #[test]
+    fn capability_set_contains_check() {
+        let cap = Capability::ToolRead {
+            tool_id: "test".to_string(),
+        };
+        let set = CapabilitySet::new().with_capability(cap.clone());
+        assert!(set.contains(&cap));
+
+        let other_cap = Capability::ToolRead {
+            tool_id: "other".to_string(),
+        };
+        assert!(!set.contains(&other_cap));
+    }
+
+    #[test]
+    fn capability_set_intersection_basic() {
+        // ADR-002: Capability Non-Amplification
+        let cap1 = Capability::ToolRead {
+            tool_id: "tool1".to_string(),
+        };
+        let cap2 = Capability::ToolRead {
+            tool_id: "tool2".to_string(),
+        };
+
+        let set_a = CapabilitySet::new()
+            .with_capability(cap1.clone())
+            .with_capability(cap2.clone());
+
+        let set_b = CapabilitySet::new().with_capability(cap1.clone());
+
+        let intersection = set_a.intersection(&set_b);
+
+        assert!(intersection.contains(&cap1));
+        assert!(!intersection.contains(&cap2));
+    }
+
+    #[test]
+    fn capability_set_intersection_empty() {
+        let cap1 = Capability::ToolRead {
+            tool_id: "tool1".to_string(),
+        };
+        let cap2 = Capability::ToolRead {
+            tool_id: "tool2".to_string(),
+        };
+
+        let set_a = CapabilitySet::new().with_capability(cap1);
+        let set_b = CapabilitySet::new().with_capability(cap2);
+
+        let intersection = set_a.intersection(&set_b);
+        assert!(intersection.capabilities.is_empty());
+    }
+
+    #[test]
+    fn capability_set_duplicate_capabilities_ignored() {
+        // HashSet behavior: duplicates are ignored
+        let cap = Capability::ToolRead {
+            tool_id: "test".to_string(),
+        };
+        let set = CapabilitySet::new()
+            .with_capability(cap.clone())
+            .with_capability(cap.clone());
+
+        assert_eq!(set.capabilities.len(), 1);
+    }
+
+    // ========== Action Tests ==========
+
+    #[test]
+    fn action_tool_call_creation() {
+        let action = Action::ToolCall {
+            tool_id: "calculator".to_string(),
+            params: serde_json::json!({"expr": "1+1"}),
+        };
+
+        match action {
+            Action::ToolCall { tool_id, .. } => {
+                assert_eq!(tool_id, "calculator");
+            }
+            _ => panic!("Expected ToolCall variant"),
+        }
+    }
+
+    #[test]
+    fn agent_def_builder_pattern() {
+        let def = AgentDef::new("test-agent").with_config(serde_json::json!({"key": "value"}));
+
+        assert_eq!(def.name, "test-agent");
+        assert_eq!(def.config["key"], "value");
+    }
+
+    #[test]
+    fn kernel_handle_creation() {
+        let agent_id = AgentId::new();
+        let caps = CapabilitySet::new();
+        let handle = KernelHandle::new(agent_id, caps);
+
+        assert_eq!(handle.agent_id, agent_id);
+    }
+}
