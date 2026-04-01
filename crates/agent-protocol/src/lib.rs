@@ -77,17 +77,15 @@ pub use types::*;
 
 // Re-export error types
 pub use errors::{
-    error_priority, compare_by_priority, ProtocolError,
-    ResourceKind, HandleInvalidReason, HumanDecision, InterruptToken,
+    compare_by_priority, error_priority, HandleInvalidReason, HumanDecision, InterruptToken,
+    ProtocolError, ResourceKind,
 };
 
 // Re-export interfaces
-pub use interfaces::{
-    AgentLifecycle, Invocation, ContextIO, SignalEvent, ObservabilityHook,
-};
+pub use interfaces::{AgentLifecycle, ContextIO, Invocation, ObservabilityHook, SignalEvent};
 
 // Re-export SignalEvent types
-pub use interfaces::signal_event::{Signal, ConfirmationRequest};
+pub use interfaces::signal_event::{ConfirmationRequest, Signal};
 
 // Re-export ObservabilityHook types
 pub use interfaces::observability::NoopObservabilityHook;

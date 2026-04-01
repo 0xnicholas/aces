@@ -1,0 +1,21 @@
+[package]
+name = "scheduler"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Scheduler - Token bucket rate limiting and priority queue for Agent Kernel"
+repository = "https://github.com/0xnicholas/aces"
+readme = "../../README.md"
+
+[dependencies]
+agent-protocol = { path = "../agent-protocol" }
+tokio = { version = "1.35", features = ["sync", "time", "rt"] }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+tracing = "0.1"
+uuid = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1.35", features = ["rt-multi-thread", "macros", "time"] }
+serde_json = "1.0"

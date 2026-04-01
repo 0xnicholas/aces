@@ -1,6 +1,12 @@
 [workspace]
 members = [
     "crates/agent-protocol",
+    "crates/agent-registry",
+    "crates/audit-log",
+    "crates/kernel-api",
+    "crates/kernel-core",
+    "crates/permission-engine",
+    "crates/scheduler",
 ]
 resolver = "2"
 

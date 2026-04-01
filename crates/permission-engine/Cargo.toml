@@ -1,0 +1,20 @@
+[package]
+name = "permission-engine"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Permission Engine - Capability evaluation and policy enforcement for Agent Kernel"
+repository = "https://github.com/0xnicholas/aces"
+readme = "../../README.md"
+
+[dependencies]
+agent-protocol = { path = "../agent-protocol" }
+serde = { workspace = true }
+serde_json = "1.0"
+uuid = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+tracing = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1.35", features = ["rt-multi-thread", "macros", "time"] }
