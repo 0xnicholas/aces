@@ -1,6 +1,6 @@
-# aces
+# Mecha
 
-`aces` is the repository for the agent-kernel architecture and protocol work.
+`Mecha` is the repository for the agent-kernel architecture and protocol work.
 It collects the public contract, internal architecture notes, and the contributor guide in one place.
 
 Start here:
